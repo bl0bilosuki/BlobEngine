@@ -41,13 +41,23 @@ jobs:
           $s = $s.Replace("Caption = 'Cheat Engine'", "Caption = 'BlobEngine'")
           Set-Content -Path $lfm -Value $s -Encoding UTF8
 
-      - name: Install Lazarus 2.2.2 and Free Pascal 3.2.2
+      - name: Download and install Lazarus 2.2.2 / FPC 3.2.2
         shell: pwsh
         run: |
           $installer = Join-Path $env:RUNNER_TEMP "lazarus-2.2.2-fpc-3.2.2-win64.exe"
-          $url = "https://sourceforge.net/projects/lazarus/files/Lazarus%20Windows%2064%20bits/Lazarus%202.2.2/lazarus-2.2.2-fpc-3.2.2-win64.exe/download"
-          Invoke-WebRequest -Uri $url -OutFile $installer
-          $p = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=C:\lazarus" -Wait -PassThru
+          $url = "https://downloads.sourceforge.net/project/lazarus/Lazarus%20Windows%2064%20bits/Lazarus%202.2.2/lazarus-2.2.2-fpc-3.2.2-win64.exe"
+          curl.exe --location --fail --retry 5 --retry-all-errors --output $installer $url
+          if ($LASTEXITCODE -ne 0) { throw "Lazarus download failed (curl exit $LASTEXITCODE)" }
+          if (!(Test-Path $installer)) { throw "Lazarus installer was not downloaded" }
+          $file = Get-Item $installer
+          if ($file.Length -lt 50000000) { throw "Downloaded Lazarus installer is unexpectedly small ($($file.Length) bytes); refusing to execute an invalid download" }
+          $stream = [System.IO.File]::OpenRead($installer)
+          try {
+            $magic = New-Object byte[] 2
+            [void]$stream.Read($magic, 0, 2)
+          } finally { $stream.Dispose() }
+          if ($magic[0] -ne 0x4D -or $magic[1] -ne 0x5A) { throw "Downloaded file is not a Windows executable (missing MZ signature)" }
+          $p = Start-Process -FilePath $installer -ArgumentList @("/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=C:\lazarus") -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Lazarus installer exited with code $($p.ExitCode)" }
           if (!(Test-Path "C:\lazarus\lazbuild.exe")) { throw "lazbuild.exe not found after installation" }
 
