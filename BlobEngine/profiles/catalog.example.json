@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "application": "BlobEngine",
+  "description": "Aliases for records in a loaded Address List or CT table; no fabricated addresses.",
+  "games": [{"id":"gta5","name":"GTA V","aliases":["Grand Theft Auto V","GTA 5"],"parameters":[
+    {"id":"player_money","name_ru":"Доллары","name_en":"Money","aliases":["деньги","наличные","cash","wallet","dollars"],"value_type":"4 Bytes","source":"compatible_user_ct_or_address_list_required"},
+    {"id":"health","name_ru":"Здоровье","name_en":"Health","aliases":["хп","hp","жизни"],"value_type":"4 Bytes","source":"compatible_user_ct_or_address_list_required"},
+    {"id":"ammo","name_ru":"Патроны","name_en":"Ammo","aliases":["боеприпасы","пули","bullets"],"value_type":"4 Bytes","source":"compatible_user_ct_or_address_list_required"}
+  ]}]
+}
