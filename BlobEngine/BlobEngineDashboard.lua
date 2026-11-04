@@ -16,7 +16,10 @@ local function makeTerms(q)
  end
  return terms
 end
-local f=createForm(); f.Caption="BlobEngine 7.5 — Панель управления"; f.Width=900; f.Height=650; f.Position="poScreenCenter"; f.Color=C.bg
+local f=createForm(); f.Caption="BlobEngine 7.5"; f.Width=1100; f.Height=760; f.Position="poScreenCenter"; f.Color=C.bg
+-- Replace the stock main window while keeping Cheat Engine as the live memory backend.
+if MainForm then MainForm.hide() end
+f.OnClose=function() if MainForm then MainForm.show() end; return caFree end
 f.Font.Name="Segoe UI"; f.Font.Size=10; f.Font.Color=C.text
 local h=createPanel(f); h.Align="alTop"; h.Height=64; h.BevelOuter="bvNone"; h.Color=C.panel
 local logo=createLabel(h); logo.Caption="B"; logo.Left=18; logo.Top=7; logo.Width=42; logo.Height=48; logo.Font.Size=30; logo.Font.Style="[fsBold]"; logo.Font.Color=C.accent2
