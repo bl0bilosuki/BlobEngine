@@ -81,8 +81,16 @@ jobs:
           New-Item -ItemType Directory -Force $dist | Out-Null
           Copy-Item "bin\\blobengine-x86_64.exe" $dist
           Copy-Item "bin\\lua53-64.dll" $dist
-          if (!(Test-Path (Join-Path $dist "blobengine-x86_64.exe")) -or !(Test-Path (Join-Path $dist "lua53-64.dll"))) {
-            throw "Portable package is incomplete"
+          # Ship upstream translation catalogs, including the existing Russian locale.
+          if (Test-Path "bin\\languages") {
+            Copy-Item "bin\\languages" (Join-Path $dist "languages") -Recurse -Force
+          } else {
+            throw "Language catalog folder is missing; Russian UI cannot be offered"
+          }
+          # Include BlobEngine Lua dashboard and semantic-name search tools.
+          Copy-Item "..\\..\\BlobEngine" (Join-Path $dist "BlobEngine") -Recurse -Force
+          if (!(Test-Path (Join-Path $dist "blobengine-x86_64.exe")) -or !(Test-Path (Join-Path $dist "lua53-64.dll")) -or !(Test-Path (Join-Path $dist "languages\\ru_RU\\cheatengine-x86_64.po"))) {
+            throw "Portable package is incomplete or Russian translation catalog is missing"
           }
           Get-ChildItem $dist | Format-Table Name,Length
 
