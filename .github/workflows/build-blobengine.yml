@@ -87,8 +87,11 @@ jobs:
           } else {
             throw "Language catalog folder is missing; Russian UI cannot be offered"
           }
-          # Include BlobEngine Lua dashboard and semantic-name search tools.
+          # Include BlobEngine tools and install the dashboard as an autorun startup script.
           Copy-Item "..\\..\\BlobEngine" (Join-Path $dist "BlobEngine") -Recurse -Force
+          $autorun = Join-Path $dist "autorun"
+          New-Item -ItemType Directory -Force $autorun | Out-Null
+          Copy-Item "..\\..\\BlobEngine\\BlobEngineDashboard.lua" (Join-Path $autorun "BlobEngineDashboard.lua")
           if (!(Test-Path (Join-Path $dist "blobengine-x86_64.exe")) -or !(Test-Path (Join-Path $dist "lua53-64.dll")) -or !(Test-Path (Join-Path $dist "languages\\ru_RU\\cheatengine-x86_64.po"))) {
             throw "Portable package is incomplete or Russian translation catalog is missing"
           }
