@@ -1,0 +1,70 @@
+name: Build BlobEngine for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout BlobEngine customizations
+        uses: actions/checkout@v4
+
+      - name: Download Cheat Engine 7.5 source
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch 7.5 https://github.com/cheat-engine/cheat-engine.git upstream
+          if ($LASTEXITCODE -ne 0) { throw "Could not clone Cheat Engine 7.5 tag" }
+
+      - name: Apply BlobEngine branding and Lua tools
+        shell: pwsh
+        run: |
+          $root = Join-Path $PWD "upstream"
+          New-Item -ItemType Directory -Force (Join-Path $root "BlobEngine/profiles") | Out-Null
+          Copy-Item "BlobEngine/BlobEngineDashboard.lua" (Join-Path $root "BlobEngine/")
+          Copy-Item "BlobEngine/BlobEngineNameSearch.lua" (Join-Path $root "BlobEngine/")
+          Copy-Item "BlobEngine/profiles/catalog.example.json" (Join-Path $root "BlobEngine/profiles/")
+          Copy-Item "BlobEngine/README_BLOBENGINE.md" (Join-Path $root "BlobEngine/")
+          $lpi = Join-Path $root "Cheat Engine/cheatengine.lpi"
+          $lfm = Join-Path $root "Cheat Engine/MainUnit.lfm"
+          if (!(Test-Path $lpi) -or !(Test-Path $lfm)) { throw "Expected Lazarus project files not found in upstream tag" }
+          $s = Get-Content $lpi -Raw
+          $s = [regex]::Replace($s, '<Title Value="[^"]*"', '<Title Value="BlobEngine 7.5"', 1)
+          $s = $s -replace 'bin\\cheatengine-', 'bin\\blobengine-'
+          Set-Content -Path $lpi -Value $s -Encoding UTF8
+          $s = Get-Content $lfm -Raw
+          $s = $s.Replace("Caption = 'Cheat Engine'", "Caption = 'BlobEngine'")
+          Set-Content -Path $lfm -Value $s -Encoding UTF8
+
+      - name: Install Lazarus 2.2.2 and Free Pascal 3.2.2
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "lazarus-2.2.2-fpc-3.2.2-win64.exe"
+          $url = "https://sourceforge.net/projects/lazarus/files/Lazarus%20Windows%2064%20bits/Lazarus%202.2.2/lazarus-2.2.2-fpc-3.2.2-win64.exe/download"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $p = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=C:\lazarus" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Lazarus installer exited with code $($p.ExitCode)" }
+          if (!(Test-Path "C:\lazarus\lazbuild.exe")) { throw "lazbuild.exe not found after installation" }
+
+      - name: Build 64-bit BlobEngine
+        shell: pwsh
+        working-directory: upstream/Cheat Engine
+        run: |
+          & "C:\lazarus\lazbuild.exe" --build-mode="Release 64-Bit" cheatengine.lpi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Join-Path $PWD "bin\blobengine-x86_64.exe"
+          if (!(Test-Path $exe)) { throw "Build finished but EXE was not found: $exe" }
+          Get-Item $exe | Format-List FullName,Length,LastWriteTime
+
+      - name: Upload Windows x64 executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlobEngine-Windows-x64
+          path: upstream/Cheat Engine/bin/blobengine-x86_64.exe
+          if-no-files-found: error
+          retention-days: 14
