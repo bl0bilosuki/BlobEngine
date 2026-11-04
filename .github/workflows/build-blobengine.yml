@@ -68,13 +68,28 @@ jobs:
           & "C:\lazarus\lazbuild.exe" --build-mode="Release 64-Bit" cheatengine.lpi
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $exe = Join-Path $PWD "bin\blobengine-x86_64.exe"
+          $lua = Join-Path $PWD "bin\\lua53-64.dll"
           if (!(Test-Path $exe)) { throw "Build finished but EXE was not found: $exe" }
-          Get-Item $exe | Format-List FullName,Length,LastWriteTime
+          if (!(Test-Path $lua)) { throw "Required Lua runtime was not found: $lua" }
+          Get-Item $exe,$lua | Format-Table FullName,Length
 
-      - name: Upload Windows x64 executable
+      - name: Prepare portable package
+        shell: pwsh
+        working-directory: upstream/Cheat Engine
+        run: |
+          $dist = Join-Path $PWD "dist"
+          New-Item -ItemType Directory -Force $dist | Out-Null
+          Copy-Item "bin\\blobengine-x86_64.exe" $dist
+          Copy-Item "bin\\lua53-64.dll" $dist
+          if (!(Test-Path (Join-Path $dist "blobengine-x86_64.exe")) -or !(Test-Path (Join-Path $dist "lua53-64.dll"))) {
+            throw "Portable package is incomplete"
+          }
+          Get-ChildItem $dist | Format-Table Name,Length
+
+      - name: Upload portable Windows x64 package
         uses: actions/upload-artifact@v4
         with:
-          name: BlobEngine-Windows-x64
-          path: upstream/Cheat Engine/bin/blobengine-x86_64.exe
+          name: BlobEngine-Windows-x64-Portable
+          path: upstream/Cheat Engine/dist/*
           if-no-files-found: error
           retention-days: 14
