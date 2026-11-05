@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Windows.Data;
 
 namespace BlobEngine;
 
@@ -11,6 +12,7 @@ public partial class MainWindow : System.Windows.Window
     private readonly ObservableCollection<MemoryEntry> _entries = new();
     private IntPtr _handle;
     private bool _isScanning;
+    private ICollectionView? _processView;
     private const uint PROCESS_VM_OPERATION = 0x0008, PROCESS_VM_READ = 0x0010, PROCESS_VM_WRITE = 0x0020, PROCESS_QUERY_INFORMATION = 0x0400;
     private const uint MEM_COMMIT = 0x1000, PAGE_GUARD = 0x100, PAGE_NOACCESS = 0x01;
     private const ulong MaxScanBytes = 512UL * 1024 * 1024;
@@ -36,16 +38,42 @@ public partial class MainWindow : System.Windows.Window
                 try
                 {
                     var name = p.ProcessName;
-                    return p.Id > 4 && p.Id != Environment.ProcessId && !RestrictedProcesses.Contains(name) ? new ProcessItem(p.Id, name) : null;
+                    var title = p.MainWindowTitle ?? string.Empty;
+                    var hasWindow = p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(title);
+                    return p.Id > 4 && p.Id != Environment.ProcessId && !RestrictedProcesses.Contains(name)
+                        ? new ProcessItem(p.Id, name, title, hasWindow) : null;
                 }
                 catch { return null; }
                 finally { p.Dispose(); }
             }).Where(p => p != null).Cast<ProcessItem>().OrderBy(p => p.Name).ToList());
-            ProcessBox.ItemsSource = items;
+            _processView = CollectionViewSource.GetDefaultView(items);
+            _processView.Filter = FilterProcess;
+            ProcessBox.ItemsSource = _processView;
             if (selectedId.HasValue) ProcessBox.SelectedItem = items.FirstOrDefault(x => x.Id == selectedId.Value);
-            FooterText.Text = $"Доступных процессов: {items.Count}. Системные процессы и сам BlobEngine скрыты.";
+            FooterText.Text = $"Процессов: {items.Count}. Введи часть названия игры в поле фильтра.";
         }
         catch (Exception ex) { FooterText.Text = "Не удалось получить список процессов: " + ex.Message; }
+    }
+
+    private bool FilterProcess(object item)
+    {
+        if (item is not ProcessItem process) return false;
+        if (OnlyWindowCheck?.IsChecked == true && !process.HasWindow) return false;
+        var query = ProcessFilterBox?.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        return process.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || process.WindowTitle.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || process.Id.ToString().Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ProcessFilterBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        _processView?.Refresh();
+    }
+
+    private void ProcessFilterOption_Changed(object sender, System.Windows.RoutedEventArgs e)
+    {
+        _processView?.Refresh();
     }
 
     private async void RefreshProcesses_Click(object sender, System.Windows.RoutedEventArgs e) => await RefreshProcessesAsync();
@@ -218,7 +246,7 @@ public partial class MainWindow : System.Windows.Window
     [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr handle);
 }
 
-public sealed record ProcessItem(int Id, string Name) { public string Display => $"{Name}  (PID {Id})"; }
+public sealed record ProcessItem(int Id, string Name, string WindowTitle, bool HasWindow) { public string Display => string.IsNullOrWhiteSpace(WindowTitle) ? $"{Name}  (PID {Id})" : $"{Name} — {WindowTitle}  (PID {Id})"; }
 public sealed class MemoryEntry
 {
     public string Name { get; set; } = "";
