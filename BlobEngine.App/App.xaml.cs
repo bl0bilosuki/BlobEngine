@@ -42,7 +42,9 @@ public partial class App : Application
     {
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "BlobEngine-error.log");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BlobEngine");
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, "BlobEngine-error.log");
             File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {title}\n{exception}\n\n");
         }
         catch { }
