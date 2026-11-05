@@ -73,7 +73,8 @@ public partial class MainWindow : System.Windows.Window
         try
         {
             var handle = _handle;
-            var found = await Task.Run(() => ScanMemory(handle, needle));
+            var scanType = ValueTypeBox.SelectedIndex;
+            var found = await Task.Run(() => ScanMemory(handle, needle, scanType));
             foreach (var item in found) _entries.Add(item);
             FooterText.Text = found.Count == 0
                 ? "Совпадений не найдено. Проверь значение и тип данных."
@@ -83,12 +84,12 @@ public partial class MainWindow : System.Windows.Window
         finally { _isScanning = false; }
     }
 
-    private static List<MemoryEntry> ScanMemory(IntPtr process, byte[] needle)
+    private static List<MemoryEntry> ScanMemory(IntPtr process, byte[] needle, int valueType)
     {
         var results = new List<MemoryEntry>();
         var address = 0UL;
         ulong scanned = 0;
-        var buffer = new byte[ChunkSize + needle.Length];
+        var chunk = new byte[ChunkSize];
         while (scanned < MaxScanBytes && results.Count < MaxResults)
         {
             var queried = VirtualQueryEx(process, new IntPtr(unchecked((long)address)), out var info, (nuint)Marshal.SizeOf<MEMORY_BASIC_INFORMATION>());
@@ -106,26 +107,29 @@ public partial class MainWindow : System.Windows.Window
             while (remaining > 0 && scanned < MaxScanBytes && results.Count < MaxResults)
             {
                 var request = (int)Math.Min((ulong)ChunkSize, remaining);
-                if (!ReadProcessMemory(process, new IntPtr(unchecked((long)cursor)), buffer, (nuint)request, out var readNative))
+                if (!ReadProcessMemory(process, new IntPtr(unchecked((long)cursor)), chunk, (nuint)request, out var readNative))
                 {
                     cursor += (ulong)request; remaining -= (ulong)request; scanned += (ulong)request; carry = 0; continue;
                 }
                 var bytesRead = (int)Math.Min((ulong)request, readNative.ToUInt64());
                 if (bytesRead <= 0) break;
-                var total = carry + bytesRead;
+                var combined = new byte[carry + bytesRead];
+                if (carry > 0) Buffer.BlockCopy(buffer, 0, combined, 0, carry);
+                Buffer.BlockCopy(chunk, 0, combined, carry, bytesRead);
+                var total = combined.Length;
                 for (var i = 0; i <= total - needle.Length && results.Count < MaxResults; i++)
                 {
                     var match = true;
                     for (var j = 0; j < needle.Length; j++)
-                        if (buffer[i + j] != needle[j]) { match = false; break; }
+                        if (combined[i + j] != needle[j]) { match = false; break; }
                     if (match)
                     {
                         var foundAddress = cursor - (ulong)carry + (ulong)i;
-                        results.Add(new MemoryEntry { Name = "Найденное значение", Type = TypeName(needle.Length), Value = FormatValue(buffer, i, needle.Length), Address = $"0x{foundAddress:X}", RawAddress = unchecked((long)foundAddress) });
+                        results.Add(new MemoryEntry { Name = "Найденное значение", Type = TypeName(needle.Length), Value = FormatValue(combined, i, valueType), Address = $"0x{foundAddress:X}", RawAddress = unchecked((long)foundAddress) });
                     }
                 }
                 carry = Math.Min(needle.Length - 1, total);
-                if (carry > 0) Buffer.BlockCopy(buffer, total - carry, buffer, 0, carry);
+                if (carry > 0) Buffer.BlockCopy(combined, total - carry, buffer, 0, carry);
                 cursor += (ulong)bytesRead;
                 remaining -= (ulong)bytesRead;
                 scanned += (ulong)bytesRead;
@@ -142,9 +146,14 @@ public partial class MainWindow : System.Windows.Window
     }
 
     private static string TypeName(int length) => length switch { 4 => "4 байта", 8 => "8 байт", _ => "Данные" };
-    private static string FormatValue(byte[] data, int offset, int length) => length == 4
-        ? BitConverter.ToSingle(data, offset).ToString("G", CultureInfo.InvariantCulture)
-        : BitConverter.ToDouble(data, offset).ToString("G", CultureInfo.InvariantCulture);
+    private static string FormatValue(byte[] data, int offset, int type) => type switch
+    {
+        0 => BitConverter.ToInt32(data, offset).ToString(CultureInfo.InvariantCulture),
+        1 => BitConverter.ToInt64(data, offset).ToString(CultureInfo.InvariantCulture),
+        2 => BitConverter.ToSingle(data, offset).ToString("G", CultureInfo.InvariantCulture),
+        3 => BitConverter.ToDouble(data, offset).ToString("G", CultureInfo.InvariantCulture),
+        _ => "?"
+    };
 
     private void Change_Click(object sender, System.Windows.RoutedEventArgs e)
     {
