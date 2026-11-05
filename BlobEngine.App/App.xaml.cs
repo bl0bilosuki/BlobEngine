@@ -6,7 +6,7 @@ namespace BlobEngine;
 
 public partial class App : Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    private void OnStartup(object sender, StartupEventArgs e)
     {
         DispatcherUnhandledException += (_, args) =>
         {
@@ -23,7 +23,6 @@ public partial class App : Application
             args.SetObserved();
         };
 
-        base.OnStartup(e);
         try
         {
             var window = new MainWindow();
