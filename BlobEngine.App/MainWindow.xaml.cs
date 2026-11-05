@@ -90,6 +90,7 @@ public partial class MainWindow : System.Windows.Window
         var address = 0UL;
         ulong scanned = 0;
         var chunk = new byte[ChunkSize];
+        var carryBuffer = new byte[Math.Max(1, needle.Length - 1)];
         while (scanned < MaxScanBytes && results.Count < MaxResults)
         {
             var queried = VirtualQueryEx(process, new IntPtr(unchecked((long)address)), out var info, (nuint)Marshal.SizeOf<MEMORY_BASIC_INFORMATION>());
@@ -114,7 +115,7 @@ public partial class MainWindow : System.Windows.Window
                 var bytesRead = (int)Math.Min((ulong)request, readNative.ToUInt64());
                 if (bytesRead <= 0) break;
                 var combined = new byte[carry + bytesRead];
-                if (carry > 0) Buffer.BlockCopy(buffer, 0, combined, 0, carry);
+                if (carry > 0) Buffer.BlockCopy(carryBuffer, 0, combined, 0, carry);
                 Buffer.BlockCopy(chunk, 0, combined, carry, bytesRead);
                 var total = combined.Length;
                 for (var i = 0; i <= total - needle.Length && results.Count < MaxResults; i++)
@@ -129,7 +130,7 @@ public partial class MainWindow : System.Windows.Window
                     }
                 }
                 carry = Math.Min(needle.Length - 1, total);
-                if (carry > 0) Buffer.BlockCopy(combined, total - carry, buffer, 0, carry);
+                if (carry > 0) Buffer.BlockCopy(combined, total - carry, carryBuffer, 0, carry);
                 cursor += (ulong)bytesRead;
                 remaining -= (ulong)bytesRead;
                 scanned += (ulong)bytesRead;
