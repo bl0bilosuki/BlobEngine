@@ -1,15 +1,39 @@
-# BlobEngine 7.5
+# BlobEngine
 
-This repository stores BlobEngine customization files and a Windows x64 GitHub Actions build workflow. The workflow obtains the upstream Cheat Engine 7.5 source at build time, applies the BlobEngine name and Lua tools, then compiles the Lazarus project.
+BlobEngine is a Windows x64 memory inspection utility built with C# and WPF on .NET 8.
 
-The named search searches existing Address List records, including records loaded from compatible .CT tables. It does not identify arbitrary unknown memory addresses. The game selector is contextual only until a verified game-specific profile is supplied.
+## Current repository layout
 
-## Build
-Open Actions → Build BlobEngine for Windows → Run workflow. On success, download the `BlobEngine-Windows-x64` artifact.
+- `BlobEngine.App` — WPF desktop application.
+- `BlobEngine.Core` — data types and value conversion.
+- `BlobEngine.Memory` — guarded Windows process-memory access.
+- `BlobEngine.Scanner` — asynchronous first/next scan engine.
+- `BlobEngine.Tests` — automated tests for core value conversion.
+- `BlobEngine.Scanner` and `BlobEngine.Memory` deliberately operate only on processes selected by the user. They do not bypass anti-cheat, DRM, or Windows security controls.
 
-Upstream build requirements are Lazarus 2.2.2 / Free Pascal 3.2.2. Some optional CE helper projects are not built by this workflow.
+The older Cheat Engine 7.5 customization workflow remains in the repository for reference. The WPF implementation is the active development direction on the `wpf-rebuild` branch.
 
-## Use the dashboard
-Launch BlobEngine, attach to a permitted offline process, load a compatible .CT table, open the Lua Engine and execute `BlobEngine/BlobEngineDashboard.lua`.
+## Build locally
 
-Cheat Engine is GPL-licensed. Preserve upstream notices and comply with the applicable GPL and third-party licenses when redistributing.
+Install the .NET 8 SDK and run in PowerShell:
+
+```powershell
+dotnet test BlobEngine.Tests/BlobEngine.Tests.csproj -c Release
+dotnet publish BlobEngine.App/BlobEngine.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+The executable is written to:
+
+`BlobEngine.App/bin/Release/net8.0-windows/win-x64/publish/BlobEngine.exe`
+
+## GitHub Actions
+
+Open **Actions → BlobEngine WPF Windows x64 → Run workflow**. The workflow runs the core tests, publishes a self-contained single-file x64 executable, verifies that the EXE exists, and uploads it as the `BlobEngine-Windows-x64` artifact.
+
+## Safety
+
+Use only with processes you own or are authorized to inspect. The project does not attempt to evade anti-cheat, DRM, process protections, or access controls. Writes must be explicitly initiated by the user.
+
+## Licensing
+
+The legacy upstream Cheat Engine customization is subject to its upstream GPL and third-party license obligations. Review all notices before redistributing any legacy-derived binaries or source.
