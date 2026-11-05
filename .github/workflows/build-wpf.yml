@@ -1,0 +1,39 @@
+name: BlobEngine WPF Windows x64
+on:
+  workflow_dispatch:
+  push:
+    branches: [ wpf-rebuild ]
+    paths:
+      - 'BlobEngine.App/**'
+      - 'BlobEngine.Core/**'
+      - 'BlobEngine.Memory/**'
+      - 'BlobEngine.Scanner/**'
+      - 'BlobEngine.Tests/**'
+      - '.github/workflows/build-wpf.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Test core
+        run: dotnet test BlobEngine.Tests/BlobEngine.Tests.csproj -c Release
+      - name: Publish self-contained single-file x64
+        run: dotnet publish BlobEngine.App/BlobEngine.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = 'BlobEngine.App/bin/Release/net8.0-windows/win-x64/publish/BlobEngine.exe'
+          if (!(Test-Path $exe)) { throw "BlobEngine.exe not found at $exe" }
+          Get-Item $exe | Format-List FullName,Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlobEngine-Windows-x64
+          path: BlobEngine.App/bin/Release/net8.0-windows/win-x64/publish/BlobEngine.exe
+          if-no-files-found: error
+          retention-days: 14
