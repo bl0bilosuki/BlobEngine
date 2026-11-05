@@ -11,7 +11,7 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             Log("Dispatcher exception", args.Exception);
-            MessageBox.Show("BlobEngine обнаружил ошибку. Подробности сохранены в BlobEngine-error.log рядом с программой.\n\n" + args.Exception.Message,
+            MessageBox.Show("BlobEngine обнаружил ошибку. Подробности сохранены в BlobEngine-error.log в папке %LOCALAPPDATA%\\BlobEngine\\BlobEngine-error.log.\n\n" + args.Exception.Message,
                 "Ошибка BlobEngine", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };
