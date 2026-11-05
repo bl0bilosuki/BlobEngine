@@ -16,34 +16,39 @@ public partial class MainWindow : System.Windows.Window
     private const ulong MaxScanBytes = 512UL * 1024 * 1024;
     private const int ChunkSize = 1024 * 1024;
     private const int MaxResults = 500;
+    private static readonly HashSet<string> RestrictedProcesses = new(StringComparer.OrdinalIgnoreCase) { "System", "Idle", "Registry", "smss", "csrss", "wininit", "services", "lsass", "winlogon", "svchost" };
 
     public MainWindow()
     {
         InitializeComponent();
         ResultsGrid.ItemsSource = _entries;
-        RefreshProcesses();
+        _ = RefreshProcessesAsync();
     }
 
-    private void RefreshProcesses()
+    private async Task RefreshProcessesAsync()
     {
         try
         {
             var selectedId = (ProcessBox.SelectedItem as ProcessItem)?.Id;
-            var items = Process.GetProcesses().Select(p =>
+            FooterText.Text = "Обновление списка процессов…";
+            var items = await Task.Run(() => Process.GetProcesses().Select(p =>
             {
-                try { return new ProcessItem(p.Id, p.ProcessName); }
+                try
+                {
+                    var name = p.ProcessName;
+                    return p.Id > 4 && p.Id != Environment.ProcessId && !RestrictedProcesses.Contains(name) ? new ProcessItem(p.Id, name) : null;
+                }
                 catch { return null; }
                 finally { p.Dispose(); }
-            }).Where(p => p != null).Cast<ProcessItem>().OrderBy(p => p.Name).ToList();
+            }).Where(p => p != null).Cast<ProcessItem>().OrderBy(p => p.Name).ToList());
             ProcessBox.ItemsSource = items;
             if (selectedId.HasValue) ProcessBox.SelectedItem = items.FirstOrDefault(x => x.Id == selectedId.Value);
-            FooterText.Text = $"Найдено процессов: {items.Count}";
+            FooterText.Text = $"Доступных процессов: {items.Count}. Системные процессы и сам BlobEngine скрыты.";
         }
         catch (Exception ex) { FooterText.Text = "Не удалось получить список процессов: " + ex.Message; }
     }
 
-    private void RefreshProcesses_Click(object sender, System.Windows.RoutedEventArgs e) => RefreshProcesses();
-
+    private async void RefreshProcesses_Click(object sender, System.Windows.RoutedEventArgs e) => await RefreshProcessesAsync();
     private void ProcessBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
         if (!IsLoaded || ProcessBox.SelectedItem is not ProcessItem item) return;
