@@ -1,0 +1,28 @@
+name: Build BlobEngine (from scratch)
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'BlobEngine.App/**'
+      - '.github/workflows/build-blobengine-clean.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish self-contained Windows x64 EXE
+        run: dotnet publish BlobEngine.App/BlobEngine.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+      - name: Upload BlobEngine
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlobEngine-from-scratch-Windows-x64
+          path: publish/
+          if-no-files-found: error
+          retention-days: 14
