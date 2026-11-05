@@ -16,4 +16,9 @@
     <AssemblyName>BlobEngine</AssemblyName>
     <RootNamespace>BlobEngine</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../BlobEngine.Core/BlobEngine.Core.csproj" />
+    <ProjectReference Include="../BlobEngine.Memory/BlobEngine.Memory.csproj" />
+    <ProjectReference Include="../BlobEngine.Scanner/BlobEngine.Scanner.csproj" />
+  </ItemGroup>
 </Project>
